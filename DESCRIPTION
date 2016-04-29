@@ -1,0 +1,9 @@
+Package: BayesSampler
+Title: Taking in data vectors, this package provides utilities for Bayes Style Induction of distributions
+Version: 0.0.0.9000
+Authors@R: person("Mark", "Kurzeja", email = "mtkurzej@umich.edu", role = c("aut", "cre"))
+Description: Most modeling methodologies advocate that one should impose a prior distribution of belief around model input parameters so that the expectation of the final result has some variability. Using Bayes Theorem, this package wishes to make explicit this update of this prior to better form conclusions based on past data.
+Depends: R (>= 3.2.4)
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
