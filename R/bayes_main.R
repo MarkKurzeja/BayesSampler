@@ -75,10 +75,7 @@ chebyshev_compute <- function(fxn, lower, upper, tol = 1E-10, n_subdivisions = 1
     })
     return(result)
   }
-
-
 }
-
 
 #' Compute the Chebyshev Coefficients for a given function
 #'
@@ -92,32 +89,39 @@ chebyshev_compute <- function(fxn, lower, upper, tol = 1E-10, n_subdivisions = 1
 #' @param tol Any coefficient smaller than this will be disreguarded
 #' @param maxN The maximum number of coefficients to calculate before the
 #'   program errors and says there is no resolution to this approximation
+#' @param verbose logical; if true, the chebyshev_coef function will print a
+#'   verbose message output indicating the coefficient sizes and the amount of
+#'   digits (base 10) that each coefficient represents
 #' @export
 #' @examples
 #' f <- function(x) {
 #'    x^5
 #' }
 #' chebyshev_coef(f, lower = -2, upper = 2, tol = 1E-10)
-chebyshev_coef <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000) {
+chebyshev_coef <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000, verbose = F) {
   N = 5
-  # cat(sprintf("The first value of N is: %i\n", N))
   while (TRUE) {
+    if (verbose) cat(sprintf("Trying N = %*i\n", 5, N))
     cx = cos(0:N * pi / N) # Get the chebyshev nodes
     shifted_cx = (cx + 1) / 2 * (upper - lower) + lower
     weights = c(1/2, rep(1,N-1), 1/2)
     # Apply the formula
+    if (verbose) cat(sprintf("   Computing the coefficients..."))
     coef <- 2/N * sapply(0:N, function(k) {
       sum(weights * fxn(cx) * cos(k * 0:N * pi / N))
     })
+    if (verbose) cat(sprintf("done\n"))
     # Get the average of the last five coefficients
     tolCheck = mean(coef[seq(from = N-5, to = N)])
+    if (verbose) cat(sprintf("   Tolerance: %.20f\n", tolCheck))
+    if (verbose) cat(sprintf("   Tolerance Digits: %.3f\n", -1 * log10(abs(tolCheck))))
     # If the average of the last five coefficeints is less than our tol and we
     # have not exceeded our maxN
-    if (tolCheck > tol) {
-      if(N > maxN) {
+    if (abs(tolCheck) > tol) {
+      N = N * 3
+       if(N > maxN) {
         stop("The chebyshev coefficients are not bounded under tol at maxN iterations")
       }
-      N = N * 3
     } else {
       return(coef)
     }
@@ -126,17 +130,21 @@ chebyshev_coef <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000) {
 
 
 #' Compute the value of N that resolves a Chebyshev Approximation
-#'
-#' This function takes in a minimum and a maximum range, a function, and a
-#' tolerance, and returns a the chebyshev coefficients of a function - useful
-#' for determining the proper N to use. Sources: SIAM Chebyshev Expansions EQ3.62
+#' 
+#' This function takes in a minimum and a maximum range, a function, and a 
+#' tolerance, and returns a the chebyshev coefficients of a function - useful 
+#' for determining the proper N to use. Sources: SIAM Chebyshev Expansions
+#' EQ3.62
 #' @keywords chebyshev approximation
 #' @param fxn The function we wish to approximate
 #' @param lower The lower bound of the approximation of the range
 #' @param upper The upper bound of the approximation of the range
 #' @param tol Any coefficient smaller than this will be disreguarded
-#' @param maxN The maximum number of coefficients to calculate before the
+#' @param maxN The maximum number of coefficients to calculate before the 
 #'   program errors and says there is no resolution to this approximation
+#' @param verbose logical; if true, the chebyshev_coef function will print a
+#'   verbose message output indicating the coefficient sizes and the amount of
+#'   digits (base 10) that each coefficient represents
 #' @export
 #' @examples
 #' f <- function(x) {
@@ -144,26 +152,27 @@ chebyshev_coef <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000) {
 #' }
 #' chebyshev_bestN(f, N = 1, lower = l, upper = u, tol = 1E-15)
 
-chebyshev_bestN <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000) {
+chebyshev_bestN <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000, verbose = F) {
   # Get the coefs from the chebyshev expansion and find where they drop off
-  coefs = chebyshev_coef(fxn = fxn, lower = lower, upper = upper, tol = tol, maxN = maxN)
+  coefs = chebyshev_coef(fxn = fxn, lower = lower, upper = upper, tol = tol, maxN = maxN, verbose = verbose)
   # Use this code which does the following:
   # 1) Find out which of the coefficients are less than the tolerance
   # 2) Find which elements of 1:length(coefs) are not less than the tolerance
   # 3) Use the values from (2) to determine the index of the coefficient that
   #    is not
-  bestN = max(which(!(1:length(coefs) %in% which(coefs < tol)))) + 1
+  bestN = max(which(!(1:length(coefs) %in% which(abs(coefs) < tol)))) + 1
   return(bestN)
 }
 
 
 f <- function(x) {
-  exp(x)
+    sin(6*x) + sign(sin(x+exp(2*x)))
 }
+curve(f, -1, 1)
 
 l = -1
 u = 1
-  myfunc = chebyshev_coef(f,lower = l, upper = u)
+  myfunc = chebyshev_coef(f,lower = l, upper = u, verbose = T)
   plot(log10(abs(myfunc)), type = "s")
   abline(v = chebyshev_bestN(f, lower = l, upper = u, tol = 1E-15))
 
