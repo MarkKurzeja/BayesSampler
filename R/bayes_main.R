@@ -41,7 +41,7 @@ chebyshev_compute <- function(fxn, lower, upper, tol = 1E-10, n_subdivisions = 1
     if (max(diff, na.rm = T) < tol) {
       break
     } else if (N > maxN) {
-      cat("The function needs a lot of precision, function evaluation stops past N > maxN")
+      cat("Can't be resolved in maxN points, function evaluation stops past N > maxN")
       break
     } else if (maxEfficiency) {
       # in maxEfficiency, we attempt to find the optimum number of points
@@ -108,12 +108,12 @@ chebyshev_coef <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000, verbose
     # Apply the formula
     if (verbose) cat(sprintf("   Computing the coefficients..."))
     coef <- 2/N * sapply(0:N, function(k) {
-      sum(weights * fxn(cx) * cos(k * 0:N * pi / N))
+      sum(weights * fxn(shifted_cx) * cos(k * 0:N * pi / N))
     })
     if (verbose) cat(sprintf("done\n"))
     # Get the average of the last five coefficients
-    tolCheck = mean(coef[seq(from = N-5, to = N)])
-    if (verbose) cat(sprintf("   Tolerance: %.20f\n", tolCheck))
+    tolCheck = mean(coef[seq(from = N-1, to = N)])
+    if (verbose) cat(sprintf("   Tolerance: %.20f\n", abs(tolCheck)))
     if (verbose) cat(sprintf("   Tolerance Digits: %.3f\n", -1 * log10(abs(tolCheck))))
     # If the average of the last five coefficeints is less than our tol and we
     # have not exceeded our maxN
@@ -167,14 +167,18 @@ chebyshev_bestN <- function(fxn, lower, upper, tol = 1E-10, maxN = 10000, verbos
 
 f <- function(x) {
     sin(6*x) + sign(sin(x+exp(2*x)))
+   # x + sin(100 * x^3)
 }
-curve(f, -1, 1)
 
-l = -1
-u = 1
-  myfunc = chebyshev_coef(f,lower = l, upper = u, verbose = T)
+l = -3
+u = -1
+curve(f, l, u, n = 1000)
+
+  myfunc = chebyshev_coef(f,lower = l, upper = u, verbose = T, tol = 1E-14)
   plot(log10(abs(myfunc)), type = "s")
-  abline(v = chebyshev_bestN(f, lower = l, upper = u, tol = 1E-15))
+  abline(v = chebyshev_bestN(f, lower = l, upper = u, tol = 1E-14))
+
+
 
 
 
