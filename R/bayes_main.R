@@ -1,4 +1,10 @@
-
+#' For this file, the following is useful: library(roxygen2) library(devtools) 
+#' From the package parent directory: Create a package with:
+#' devtools::create("packagename") You can document it with
+#' devtools::document("packagename") and documenting it allows the function to
+#' be visible Install it with devtools::install("packagename") which will make
+#' it usable to all. 
+#' Download from github with: devtools::install_github("username/projectName")
 
 #' Chebyshev Interpolation Function
 #'
@@ -346,6 +352,186 @@ CInfParabolaSmoother <- function(xvec, yvec) {
       return(w.second * leftApprox + w.first * rightApprox)
     })
   }
+}
+
+
+#' Floater-Hormann Rational Interpolation
+#'
+#' Floater-Hormann interpolation, as suggested in "Barycentric 
+#' rational interpolation with no poles and high rates of 
+#' approximation Michael S. Floater & Kai Hormann (Equations 11 and 
+#' 18)" is a method of interpolation that is far more stable than 
+#' polynomial interpolation in equidistant or irregular points. While 
+#' this function does benefit from points distributed near the end 
+#' points such as Chebyshev points, it works well in almost any set of 
+#' points. It does this by moving out of the realm of polynomial 
+#' functions, and instead, represents the function as a rational 
+#' function (i.e. a polynomial of degree d <= N divided by another 
+#' polynomial of degree f <= N). Using the Barycentric formula, this 
+#' set of interpolates can be computed quickly once the weights have 
+#' been computed. This function is guaranteed to have no poles on the 
+#' real numbers, and thus wont suffer from issues with discontinuous 
+#' functions. 
+#' 
+#' The parameter d, the degree of the numerator and denominator, 
+#' determines the convergence property of the interpolating rational 
+#' function. The order of convergence is O(h^(d + 1)) if the function 
+#' is smooth, and thus, for computational savings, select a small d 
+#' (this is relative to N, the number of points), and for very precise 
+#' approximations, choose a value of d that is large relative to N. d 
+#' = N is a good choice and is something that should be considered for 
+#' maximizing the precision of the interpolant.
+#' 
+#' Because this function is an interpolate, it will be exactly equal 
+#' to f(x) N+1 times, and thus, the precision is a function of the 
+#' number of N+1 points primary where greater orders of approximation 
+#' are honed with different values of d. Choosing d = 3 uses third 
+#' degree polynomials for the numerator and denominator, and thus the 
+#' order of the error is O(h^4) - the same as cubic splines. 
+#' @param xvals The x values where f(x) is evaluated
+#' @param yvals The values of f(x) at their respective xvals
+#' @param d The degree of the polynomial. d <= N should be set to a low 
+#' value (<=10) for a general use function and set to d \\approx N for 
+#' a high precision evaluation
+#' @export
+#' @examples
+#'  f <- function(x) {
+#'    sin(x * 5) 
+#'  }
+#'  # Plot the function
+#'  curve(f, -3, -1)
+#'  
+#'  # Set the graphical interface to a 2x1 grid
+#'  par(mfrow = c(1,2))
+#'  
+#'  # Plot the {2,...,15} degree interpolants for d = N (precision oriented)
+#'  # Do so through the equidistant points or through the chebyshev points
+#'  # depending on which myxvals you comment out
+#'  sapply(seq(2, 15, by = 1), function(len) {
+#'    myxvals = seq(-3, -1,length = len)
+#' #    myxvals = ((-cos(seq(0, len) * pi / len) + 1) / 2) * 2 - 3
+#'    myyvals = f(myxvals)
+#'    myfunc <- FloaterHormannInterpolation(myxvals, myyvals, d = len - 1)
+#'    curve(f(x), -3, -1, col = "blue",  
+#'          main = paste("Nodes:", len, "Interp. Result" ))
+#'    abline(v = myxvals, col = "grey")
+#'    curve(myfunc(x), -3, -1, add = T, col = "red", lty = 2)
+#'    curve(log10(abs(myfunc(x) - f(x))), -3, -1, 
+#'          col = "red", 
+#'          n = 300, 
+#'          main = paste("Error for", len, "nodes"), 
+#'          ylim = c(-20,0))
+#'  })
+
+FloaterHormannInterpolation <- function(xvals, yvals, d) {
+  # Check the following:
+  # The length of the xvals and yvals are the same
+  # The length of the points is >= the degree of the rational approx
+  stopifnot(length(xvals) == length(yvals))
+  stopifnot(length(xvals) >= d)
+  mymin = min(xvals)
+  mymax = max(xvals)
+  
+  # Scale the points to [-2,2] for the weights for numerical stabality
+  xvals <- (xvals - mymin) / (mymax - mymin) * 4 - 2
+  
+  # Compute the weights wk determined by equations 11 and 18
+  N = length(xvals)
+  wk = sapply(seq(0, N - 1), function(k) {
+    littleN = length(xvals) - 1
+    # Get the sequence of J_k which is a set from eq 11 and set it 
+    # equal to iseq
+    iseq = seq(0, littleN - d) %>% {.[k-d <= . & . <= k]}
+    # For each i, compute the sumproduct
+    sapply(iseq, function(i) {
+      jseq = seq(i, i + d) %>% {.[. != k]}
+      (-1)^i * prod(1 / (xvals[k + 1] - xvals[jseq + 1]) )
+    }) %>% sum
+  })
+  
+  # Build a function that returns the barycentric interpolant of the points
+  # according to the rational function
+  result <- function(x) {
+    sapply(x, function(loopx) {
+      # Ensure points that we are evaluating are not being extrapolated
+      stopifnot(loopx >= mymin & x <= mymax)
+      # Scale the x into [-2,2] interval for numerical stability. This trick was
+      # borrowed from Barycentric interpolation of Chebyshev points, and it
+      # reduces the chance of overflow or underflow when evalutaing the
+      # polynomial for high degrees of N
+      loopx <- (loopx - mymin) / (mymax - mymin) * 4 - 2
+      # Run the barycentric formula!
+      sum(wk / (loopx - xvals) * yvals) / sum(wk / (loopx - xvals))
+    })
+  }
+  return(result)
+}
+
+
+#' TODO:
+#' Add a function for BarycentricInterpolation(xvals, yvals, weightfunc)
+#' Add a function for BarycentricInterpolation.Polynomial(xvals,yvals)
+#' Add a function for BarycentricInterpolation.Chebyshev(xvals,yvals)
+#' Use the new barycentric interpolation functions to simplify previous code for approximations
+#' Debug the barycentric interpolation function
+#' Add a function for FAST interpolation with BarycentricInterpolation.Berrut(xvals,yvals)
+#' 
+#' Bayes Stuff:
+#' Add a function that computes, given only value of x's as input:
+#'  gamma posterior for 
+#'  lambda posterior for number of arrivals
+#'  mean & var posterior
+#'  var posterior for population
+#'  pareto posterior for uniform
+#'  dirlecht distribution for categorical variance
+#'  beta posterior for probability 
+#' 
+
+
+#' Compute the Barycentric Interpolant for a given weight function
+#' 
+#' Take in a vector of x,y pairs and a weight function, and return a function that provides the barycentric interpolant through those points. This function is guaranteed to be rational 
+#' @keywords rational interpolation interpolate
+#' @param xvec A vector of the x values
+#' @param yvec A vector of the y values
+#' @param weightfunc A function that returns all of the weights for a given interpolant
+#' @export 
+#' @examples  
+#' f <- function(x) {
+#'   sin(x)
+#' }
+#' 
+#' x <- seq(0,1,length = 100)
+#' # Caution, this interpolatnt is highly unstable!!!
+#' curve(barycentricInterpolation(x, f(x), function(xvals, yvals) {return(-1)^length(x)})
+
+BarycentricInterpolation.main <- function(xvals, yvals, weightfunc){
+  # Scale to -2,2 for stability
+  bounds = range(xvals)
+  xvals <- (xvals - bounds[1]) / (bounds[2] - bounds[1]) * 4 - 2
+  
+  # Determine the weights
+  weights = weightfunc(xvals, yvals)
+  
+  # Return a function that interpolates in the desired interval
+  result <- function(x) {
+    sapply(x, function(loopx) {
+      # Ensure points that we are evaluating are not being extrapolated
+      stopifnot(loopx >= bounds[1] & x <= bounds[2])
+      # If the x is in the xvals, return its yval equivlent
+      if(any(loopx == xvals)) {
+        return(yvals[loopx == xvals])
+      }
+      # Scale the x into [-2,2] interval for numerical stability. This trick was
+      # borrowed from Barycentric interpolation of Chebyshev points, and it
+      # reduces the chance of overflow or underflow when evalutaing the
+      # polynomial for high degrees of N
+      loopx <- (loopx - bounds[1]) / (bounds[2] - bounds[1]) * 4 - 2
+      # Run the barycentric formula!
+      sum(weights / (loopx - xvals) * yvals) / sum(weights / (loopx - xvals))
+    })
+  }
+  return(result)
 }
 
 
