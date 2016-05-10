@@ -355,6 +355,78 @@ CInfParabolaSmoother <- function(xvec, yvec) {
 }
 
 
+
+
+
+#' TODO:
+#' Add a function for BarycentricInterpolation(xvals, yvals, weightfunc)
+#' Add a function for BarycentricInterpolation.Polynomial(xvals,yvals)
+#' Add a function for BarycentricInterpolation.Chebyshev(xvals,yvals)
+#' Use the new barycentric interpolation functions to simplify previous code for approximations
+#' Debug the barycentric interpolation function
+#' Add a function for FAST interpolation with BarycentricInterpolation.Berrut(xvals,yvals)
+#' 
+#' Bayes Stuff:
+#' Add a function that computes, given only value of x's as input:
+#'  gamma posterior for 
+#'  lambda posterior for number of arrivals
+#'  mean & var posterior
+#'  var posterior for population
+#'  pareto posterior for uniform
+#'  dirlecht distribution for categorical variance
+#'  beta posterior for probability 
+#' 
+
+
+#' Compute the Barycentric Interpolant for a given weight function
+#' 
+#' Take in a vector of x,y pairs and a weight function, and return a function that provides the barycentric interpolant through those points. This function is guaranteed to be rational 
+#' @keywords rational interpolation interpolate
+#' @param xvec A vector of the x values
+#' @param yvec A vector of the y values
+#' @param weights The weights to interpolate on
+#' @export 
+#' @examples  
+#' f <- function(x) {
+#'   sin(x)
+#' }
+#' 
+#' x <- seq(0,1,length = 100)
+#' # Caution, this interpolatnt is highly unstable!!!
+#' curve(barycentricInterpolation(x, f(x), function(xvals, yvals) {return(-1)^length(x)})
+
+BarycentricInterpolation.main <- function(xvals, yvals, weights){
+  # Check the following:
+  # The length of the xvals and yvals are the same
+  # The length of the points is >= the degree of the rational approx
+  stopifnot(length(xvals) == length(yvals))
+  mymin = min(xvals)
+  mymax = max(xvals)
+  
+  # Scale the points to [-2,2] for the weights for numerical stabality
+  xvals <- (xvals - mymin) / (mymax - mymin) * 4 - 2
+  
+  # The weights are already computed
+  
+  # Build a function that returns the barycentric interpolant of the points
+  # according to the rational function
+  result <- function(x) {
+    sapply(x, function(loopx) {
+      # Ensure points that we are evaluating are not being extrapolated
+      stopifnot(loopx >= mymin & x <= mymax)
+      # Scale the x into [-2,2] interval for numerical stability. This trick was
+      # borrowed from Barycentric interpolation of Chebyshev points, and it
+      # reduces the chance of overflow or underflow when evalutaing the
+      # polynomial for high degrees of N
+      loopx <- (loopx - mymin) / (mymax - mymin) * 4 - 2
+      # Run the barycentric formula!
+      sum(weights / (loopx - xvals) * yvals) / sum(weights / (loopx - xvals))
+    })
+  }
+  return(result)
+}
+
+
 #' Floater-Hormann Rational Interpolation
 #'
 #' Floater-Hormann interpolation, as suggested in "Barycentric 
@@ -424,17 +496,13 @@ CInfParabolaSmoother <- function(xvec, yvec) {
 #'  })
 
 FloaterHormannInterpolation <- function(xvals, yvals, d) {
-  # Check the following:
-  # The length of the xvals and yvals are the same
-  # The length of the points is >= the degree of the rational approx
+  # Checks - all others done in the barycentric formula
   stopifnot(length(xvals) == length(yvals))
   stopifnot(length(xvals) >= d)
-  mymin = min(xvals)
-  mymax = max(xvals)
   
-  # Scale the points to [-2,2] for the weights for numerical stabality
-  xvals <- (xvals - mymin) / (mymax - mymin) * 4 - 2
-  
+  # Scale the values for the weight calculation
+  bounds = range(xvals)
+  xvals <- (xvals - bounds[1]) / (bounds[2] - bounds[1]) * 4 - 2
   # Compute the weights wk determined by equations 11 and 18
   N = length(xvals)
   wk = sapply(seq(0, N - 1), function(k) {
@@ -445,99 +513,30 @@ FloaterHormannInterpolation <- function(xvals, yvals, d) {
     # For each i, compute the sumproduct
     sapply(iseq, function(i) {
       jseq = seq(i, i + d) %>% {.[. != k]}
-      (-1)^i * prod(1 / (xvals[k + 1] - xvals[jseq + 1]) )
+      (-1)^i * prod(1 / (xvals[k + 1] - xvals[jseq + 1]))
     }) %>% sum
   })
+  plot(log10((abs(wk))))
   
-  # Build a function that returns the barycentric interpolant of the points
-  # according to the rational function
-  result <- function(x) {
-    sapply(x, function(loopx) {
-      # Ensure points that we are evaluating are not being extrapolated
-      stopifnot(loopx >= mymin & x <= mymax)
-      # Scale the x into [-2,2] interval for numerical stability. This trick was
-      # borrowed from Barycentric interpolation of Chebyshev points, and it
-      # reduces the chance of overflow or underflow when evalutaing the
-      # polynomial for high degrees of N
-      loopx <- (loopx - mymin) / (mymax - mymin) * 4 - 2
-      # Run the barycentric formula!
-      sum(wk / (loopx - xvals) * yvals) / sum(wk / (loopx - xvals))
-    })
-  }
-  return(result)
+  # Transfrom back the xvals onto the desired range
+  xvals <- (xvals + 2) / 4 * (bounds[2] - bounds[1]) + bounds[1]
+  # Return the barycentric interpolant with these weights!
+  return(BarycentricInterpolation.main(xvals = xvals, yvals = yvals, weights = wk))
 }
 
-
-#' TODO:
-#' Add a function for BarycentricInterpolation(xvals, yvals, weightfunc)
-#' Add a function for BarycentricInterpolation.Polynomial(xvals,yvals)
-#' Add a function for BarycentricInterpolation.Chebyshev(xvals,yvals)
-#' Use the new barycentric interpolation functions to simplify previous code for approximations
-#' Debug the barycentric interpolation function
-#' Add a function for FAST interpolation with BarycentricInterpolation.Berrut(xvals,yvals)
-#' 
-#' Bayes Stuff:
-#' Add a function that computes, given only value of x's as input:
-#'  gamma posterior for 
-#'  lambda posterior for number of arrivals
-#'  mean & var posterior
-#'  var posterior for population
-#'  pareto posterior for uniform
-#'  dirlecht distribution for categorical variance
-#'  beta posterior for probability 
-#' 
-
-
-#' Compute the Barycentric Interpolant for a given weight function
-#' 
-#' Take in a vector of x,y pairs and a weight function, and return a function that provides the barycentric interpolant through those points. This function is guaranteed to be rational 
-#' @keywords rational interpolation interpolate
-#' @param xvec A vector of the x values
-#' @param yvec A vector of the y values
-#' @param weightfunc A function that returns all of the weights for a given interpolant
-#' @export 
-#' @examples  
-#' f <- function(x) {
-#'   sin(x)
-#' }
-#' 
-#' x <- seq(0,1,length = 100)
-#' # Caution, this interpolatnt is highly unstable!!!
-#' curve(barycentricInterpolation(x, f(x), function(xvals, yvals) {return(-1)^length(x)})
-
-BarycentricInterpolation.main <- function(xvals, yvals, weightfunc){
-  # Scale to -2,2 for stability
-  bounds = range(xvals)
-  xvals <- (xvals - bounds[1]) / (bounds[2] - bounds[1]) * 4 - 2
-  
-  # Determine the weights
-  weights = weightfunc(xvals, yvals)
-  
-  # Return a function that interpolates in the desired interval
-  result <- function(x) {
-    sapply(x, function(loopx) {
-      # Ensure points that we are evaluating are not being extrapolated
-      stopifnot(loopx >= bounds[1] & x <= bounds[2])
-      # If the x is in the xvals, return its yval equivlent
-      if(any(loopx == xvals)) {
-        return(yvals[loopx == xvals])
-      }
-      # Scale the x into [-2,2] interval for numerical stability. This trick was
-      # borrowed from Barycentric interpolation of Chebyshev points, and it
-      # reduces the chance of overflow or underflow when evalutaing the
-      # polynomial for high degrees of N
-      loopx <- (loopx - bounds[1]) / (bounds[2] - bounds[1]) * 4 - 2
-      # Run the barycentric formula!
-      sum(weights / (loopx - xvals) * yvals) / sum(weights / (loopx - xvals))
-    })
-  }
-  return(result)
-}
-
-
-
-
-
+# par(mfrow = c(1,2))
+# xvals <- seq(-1,1,length = 1000)
+# f<- function(x) {
+#   sin(5 * x)
+# }
+# 
+# yvals <- f(xvals)
+# 
+# 
+# 
+# myfunc <- FloaterHormannInterpolation(xvals,yvals,5)
+# plot(xvals,yvals)
+# curve(myfunc, from = -1, to = 1, add = T)
 
 
 
