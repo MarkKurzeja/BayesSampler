@@ -2,7 +2,14 @@
 % Please edit documentation in R/bayes_main.R
 \name{chebyshev_compute}
 \alias{chebyshev_compute}
-\title{Chebyshev Interpolation Function}
+\title{For this file, the following is useful: library(roxygen2) library(devtools) 
+From the package parent directory: Create a package with:
+devtools::create("packagename") You can document it with
+devtools::document("packagename") and documenting it allows the function to
+be visible Install it with devtools::install("packagename") which will make
+it usable to all. 
+Download from github with: devtools::install_github("username/projectName")
+Chebyshev Interpolation Function}
 \usage{
 chebyshev_compute(fxn, lower, upper, tol = 1e-10, n_subdivisions = 100,
   maxN = 3000, maxEfficiency = F)
