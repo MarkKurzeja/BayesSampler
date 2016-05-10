@@ -4,7 +4,7 @@
 \alias{chebyshev_coef}
 \title{Compute the Chebyshev Coefficients for a given function}
 \usage{
-chebyshev_coef(fxn, lower, upper, tol = 1e-10, maxN = 10000)
+chebyshev_coef(fxn, lower, upper, tol = 1e-10, maxN = 10000, verbose = F)
 }
 \arguments{
 \item{fxn}{The function we wish to approximate}
@@ -17,6 +17,10 @@ chebyshev_coef(fxn, lower, upper, tol = 1e-10, maxN = 10000)
 
 \item{maxN}{The maximum number of coefficients to calculate before the
 program errors and says there is no resolution to this approximation}
+
+\item{verbose}{logical; if true, the chebyshev_coef function will print a
+verbose message output indicating the coefficient sizes and the amount of
+digits (base 10) that each coefficient represents}
 }
 \description{
 This function takes in a minimum and a maximum range, a function, and a
